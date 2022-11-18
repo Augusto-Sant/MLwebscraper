@@ -4,10 +4,11 @@ import pandas
 
 
 def main():
-    url = input("URL DO PRODUTO MERCADO LIVRE: ")
+    url = 'https://lista.mercadolivre.com.br/tenis-adidas#D[A:tenis%20adidas]'
 
     all_products = []
     page = 1
+    for_loop = 0
     while True:
         response = requests.get(url)
 
@@ -15,22 +16,30 @@ def main():
 
         title = file.find('title')
 
-        div = file.find_all('div',class_="ui-search-result__content-wrapper shops__result-content-wrapper")
+        div = file.find_all('div',class_="andes-card andes-card--flat andes-card--default ui-search-result shops__cardStyles ui-search-result--core andes-card--padding-default andes-card--animated")
         
-        for product in div:
+        for index, product in enumerate(div):
             info = {}
             head = product.find('span',string=True,class_='ui-search-item__brand-discoverability ui-search-item__group__element shops__items-group-details')
-            desc = product.find('h2',string=True,class_="ui-search-item__title ui-search-item__group__element shops__items-group-details shops__item-title")
+            desc = product.find('h2',string=True,class_="ui-search-item__title ui-search-item__group__element shops__items-group-details shops__item-title").contents[0]
             price = product.find('span',string=True,class_="price-tag-fraction")
+            try:
+                mlcode = product.find('a')['href'].split('/p/')[1].split('?')[0]
+            except:
+                mlcode = product.find('a')['href'].split('MLB-')[1].split('-')[0]
+                mlcode = f"MLB{mlcode}"
             info.update({
                 'Vendedor':head.contents[0] if head!=None else '',
-                'Descrição':desc.contents[0],
+                'Descrição':desc,
                 'Preço':price.contents[0],
-                'Pagina':page
+                'Pagina':page,
+                'MLCODE':mlcode
             })
             
             all_products.append(info.copy())
             info.clear()
+            for_loop += 1
+            print(index, for_loop)
 
         next_page = file.find('span',class_='andes-pagination__arrow-title',string='Próxima')
         if next_page == None:
@@ -41,7 +50,7 @@ def main():
             url = next_page_url
 
     dataframe = pandas.DataFrame.from_dict(all_products)
-    print(dataframe)
+    print(dataframe.to_markdown())
     search = ""
     while search != '0':
         print("########################")
