@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 import requests
 import pandas
-
+from tabulate import tabulate
 
 class Scraper:
     def __init__(self, url):
@@ -21,24 +21,31 @@ class Scraper:
 
             self.title = file.find('title')
 
-            div = file.find_all('div',
-                                class_="andes-card andes-card--flat andes-card--default ui-search-result "
-                                       + "shops__cardStyles ui-search-result--core andes-card--"
-                                       + "padding-default andes-card--animated")
+            if file.find('section', class_='ui-search-top-keywords') is not None:
+                div = file.find_all('div',
+                                    class_="andes-card andes-card--flat andes-card--default ui-search-result "
+                                           + "shops__cardStyles ui-search-result--core andes-card--"
+                                           + "padding-default andes-card--animated")
+                desc_tag = "ui-search-item__title ui-search-item__group__element shops__items-group-details shops__item-title"
+            else:
+                div = file.find_all('li', class_='ui-search-layout__item shops__layout-item')
+                desc_tag = 'ui-search-item__title shops__item-title'
 
             for index, product in enumerate(div):
                 info = {}
                 head = product.find('span', string=True,
                                     class_='ui-search-item__brand-discoverability ui-search-item__group__element shops__items-group-details')
                 desc = product.find('h2', string=True,
-                                    class_="ui-search-item__title ui-search-item__group__element shops__items-group-details shops__item-title").contents[
-                    0]
+                                    class_=desc_tag).contents[0]
                 price = product.find('span', string=True, class_="price-tag-fraction")
                 try:
                     mlcode = product.find('a')['href'].split('/p/')[1].split('?')[0]
                 except:
-                    mlcode = product.find('a')['href'].split('MLB-')[1].split('-')[0]
-                    mlcode = f"MLB{mlcode}"
+                    try:
+                        mlcode = product.find('a')['href'].split('MLB-')[1].split('-')[0]
+                        mlcode = f"MLB{mlcode}"
+                    except:
+                        mlcode = ""
 
                 preco = self.corrigir_numeros1000(price.contents[0])
                 info.update({
@@ -116,6 +123,7 @@ class CalculaPreco:
 def search(dataframe, calcula_preco):
     while True:
         search_name = input("Pesquise uma palavra chave (0 para sair): ")
+        print("")
         if search_name == '0':
             break
 
@@ -130,14 +138,15 @@ def search(dataframe, calcula_preco):
         new_dataframe = dataframe.iloc[products_found]
         print(new_dataframe.to_markdown())
         print("")
-        print("INFORMAÇÕES SOBRE OS PREÇOS ---------------------------")
-        print(f"| MEDIA: {calcula_preco.calcular_media_precos(new_dataframe):.3f}", end="| ")
-        print(f"MEDIANA: {calcula_preco.calcular_mediana_precos(new_dataframe):.3f}", end="| ")
-        print(f"MAXIMO: {calcula_preco.calcular_max_precos(new_dataframe):.3f}", end="| ")
-        print(f"MINIMO: {calcula_preco.calcular_min_precos(new_dataframe):.3f}", end="| ")
-        print(f"FAIXA: {calcula_preco.calcular_faixa_precos(new_dataframe):.3f}", end="|\n")
-        print("-------------------------------------------------------")
-        print(f'Total encontrado: {searched_phrases}')
+        table_calculo = {
+            "Media": [f'{calcula_preco.calcular_media_precos(new_dataframe):.3f}'],
+            "Mediana": [f'{calcula_preco.calcular_mediana_precos(new_dataframe):.3f}'],
+            "Maximo": [f'{calcula_preco.calcular_max_precos(new_dataframe):.3f}'],
+            "Minimo": [f'{calcula_preco.calcular_min_precos(new_dataframe):.3f}'],
+            "Faixa": [f'{calcula_preco.calcular_faixa_precos(new_dataframe):.3f}'],
+        }
+        print(tabulate(table_calculo, headers='keys'))
+        print("")
 
 
 def check_html_file():
@@ -156,16 +165,17 @@ def main():
     scraper.scrape()
     calcula_preco = CalculaPreco()
     dataframe = scraper.create_dataframe()
-    print(dataframe.to_markdown())
+    print(dataframe.head(99).to_markdown())
     dataframe.to_html(buf="data.html")
     print("")
-    print("INFORMAÇÕES SOBRE OS PREÇOS ---------------------------")
-    print(f"| MEDIA: {calcula_preco.calcular_media_precos(dataframe):.3f}", end="| ")
-    print(f"MEDIANA: {calcula_preco.calcular_mediana_precos(dataframe):.3f}", end="| ")
-    print(f"MAXIMO: {calcula_preco.calcular_max_precos(dataframe):.3f}", end="| ")
-    print(f"MINIMO: {calcula_preco.calcular_min_precos(dataframe):.3f}", end="| ")
-    print(f"FAIXA: {calcula_preco.calcular_faixa_precos(dataframe):.3f}", end="|\n")
-    print("-------------------------------------------------------")
+    table_calculo = {
+        "Media": [f'{calcula_preco.calcular_media_precos(dataframe):.3f}'],
+        "Mediana": [f'{calcula_preco.calcular_mediana_precos(dataframe):.3f}'],
+        "Maximo": [f'{calcula_preco.calcular_max_precos(dataframe):.3f}'],
+        "Minimo": [f'{calcula_preco.calcular_min_precos(dataframe):.3f}'],
+        "Faixa": [f'{calcula_preco.calcular_faixa_precos(dataframe):.3f}'],
+    }
+    print(tabulate(table_calculo, headers='keys'))
     print("")
     search(dataframe, calcula_preco)
 
